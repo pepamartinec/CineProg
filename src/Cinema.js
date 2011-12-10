@@ -6,9 +6,9 @@ var CinemaPlace = require('./CinemaPlace.js'),
  * 
  * @class Cinema
  */
-var Cinema = function( name, definition )
+var Cinema = function( id, definition )
 {
-	this.name       = name;
+	this.id       = id;
 	this.placesList = {};
 	
 	for( var item in definition ) {
@@ -21,6 +21,7 @@ var Cinema = function( name, definition )
 };
 
 Cinema.prototype = {
+	id         : null,
 	name       : null,
 	placesList : null,
 	

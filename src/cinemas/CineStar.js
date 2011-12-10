@@ -3,7 +3,9 @@ var Cinema = require('../Cinema.js'),
     httpLoader = require('../utils.js').httpLoaderFn;
 
 module.exports = new Cinema( 'CineStar',
-{	
+{
+	name : 'CineStar',
+	
 	/**
 	 * Builds list of available places
 	 * 

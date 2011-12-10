@@ -1,8 +1,9 @@
-var Program = require('./Program.js'),
-    Cinema  = require('./Cinema.js'),
+var Cinema  = require('./Cinema.js'),
+    ProgramCache = require('./ProgramCache.js'),
     doCallback = require('./utils.js').doCallback;
 
 var cinemasRegistry = {};
+var programCache = new ProgramCache();
 
 /**
  * Returns cinema instance
@@ -85,23 +86,38 @@ var initCinemas = function( cinemas, callback )
  * @param {String}   date     program date
  * @param {Function} callback done callback
  */
-var loadProgram = function( cinema, place, date, callback )
+var loadProgram = function( cinemaName, placeName, date, callback )
 {
-	if( cinemasRegistry[ cinema ] == null ) {
-		throw "Invalid loader name '"+ loaderName +"'";
+	if( cinemasRegistry[ cinemaName ] == null ) {
+		throw "Invalid cinema name '"+ cinemaName +"'";
 	}
 	
-	console.log( "Loading "+ cinema +" - "+ place +" program on "+ date );
+	var place = cinemasRegistry[ cinemaName ].getPlace( placeName );
 	
-	cinemasRegistry[ cinema ].loadProgram( place, date, callback );
+	if( place == null ) {
+		throw "Invalid place name '"+ placeName +"' for "+ cinemaName +" cinema";
+	}
+	
+	console.log( "Loading "+ place.cinema.name +" - "+ place.name +" program for "+ date );
+	
+	programCache.loadProgram( place, date, callback );
+};
+
+/**
+ * 
+ */
+var search = function( filterFn )
+{
+	return programCache.search( filterFn );
 };
 
 // export public items
-exports.Program         = Program;
 exports.Cinema          = Cinema;
 exports.registerCinemas = registerCinemas;
 exports.initCinemas     = initCinemas;
 exports.loadProgram     = loadProgram;
+exports.search          = search;
 
 // !!! DEBUG !!!
 exports.cinemas = cinemasRegistry;
+exports.cache   = programCache;

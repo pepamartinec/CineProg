@@ -50,7 +50,7 @@ var registerCinemas = function( cinemas )
  * @param {Array}    loaderNames list of loader names
  * @param {Function} callback    done callback
  */
-var initCinemas = function( cinemas, program, callback )
+var initCinemas = function( cinemas, callback )
 {
 	var loadersNo = cinemas.length;
 	
@@ -63,7 +63,7 @@ var initCinemas = function( cinemas, program, callback )
 		}
 		
 		console.log( '   - starting initialization of '+ name +' loader' );
-		cinema.init( program, function() {
+		cinema.init( function() {
 			var lName = name;
 			
 			return function() {
@@ -85,7 +85,7 @@ var initCinemas = function( cinemas, program, callback )
  * @param {String}   date     program date
  * @param {Function} callback done callback
  */
-var loadProgram = function( cinema, place, date, program, callback )
+var loadProgram = function( cinema, place, date, callback )
 {
 	if( cinemasRegistry[ cinema ] == null ) {
 		throw "Invalid loader name '"+ loaderName +"'";
@@ -93,7 +93,7 @@ var loadProgram = function( cinema, place, date, program, callback )
 	
 	console.log( "Loading "+ cinema +" - "+ place +" program on "+ date );
 	
-	cinemasRegistry[ cinema ].loadProgram( place, date, program, callback );
+	cinemasRegistry[ cinema ].loadProgram( place, date, callback );
 };
 
 // export public items
@@ -102,3 +102,6 @@ exports.Cinema          = Cinema;
 exports.registerCinemas = registerCinemas;
 exports.initCinemas     = initCinemas;
 exports.loadProgram     = loadProgram;
+
+// !!! DEBUG !!!
+exports.cinemas = cinemasRegistry;

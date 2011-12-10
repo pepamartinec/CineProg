@@ -1,8 +1,5 @@
-var request = require('request'),
-    jsdom   = require('jsdom'),
-    doCallback = require('./utils.js').doCallback;
-
-var abstractFn = function() { throw 'Unimplemented abstract function'; };
+var CinemaPlace = require('./CinemaPlace.js'),
+    abstractFn  = require('./utils.js').abstractFn;
 
 /**
  * Cinema object prototype
@@ -24,64 +21,61 @@ var Cinema = function( name, definition )
 };
 
 Cinema.prototype = {
-	name         : null,
-	program      : null,
-	httpLoaderFn : null,
-	placesList   : null,
+	name       : null,
+	placesList : null,
 	
-	buildPlacesList : abstractFn, 
-	loadProgram     : abstractFn,
+	buildPlacesList : abstractFn,
 	
-	init : function( program, callback )
+	init : function( callback )
 	{
-		this.program = program;
 		this.buildPlacesList( callback );		
 	},
 	
-	httpLoaderFn : function( config, callback ) {
-		console.log( '>>> load page', config );
-		
-		var handler = function( error, response, body ) {
-			if( error && response.statusCode !== 200 ) {
-				console.log( '>>> failed to load page', config, response );
-				return;
-			}
+	/**
+	 * Adds new cinema place
+	 * 
+	 * @param id
+	 * @param name
+	 * @param url
+	 * @param programLoaderFn
+	 */
+	addPlace : function( id, name, url, programLoaderFn )
+	{
+		this.placesList[ id ] = new CinemaPlace( this, id, {
+			name : name,
+			url  : url,
 			
-			console.log( '>>> page loaded', config );
-			
-			jsdom.env({
-				html    : body,
-				scripts : [ 'http://code.jquery.com/jquery-1.5.min.js' ],
-				done    : function( error, window ) {
-					doCallback( callback, [ window ]);
-				}
-			});
-		};
+			loadProgram : this.place_loadProgram
+		});
 		
-		if( typeof config !== 'object' ) {
-			config = {
-				url : config
-			};
+		console.log( 'New place for '+this.name+' cinema registered - '+name+' ('+id+')' );
+	},
+	
+	/**
+	 * Returns cinema place
+	 * 
+	 * @param  {String} placeName
+	 * @return {CinemPlace}
+	 */
+	getPlace : function( placeName )
+	{
+		if( this.placesList[ placeName ] === undefined ) {
+			throw "Invalid place '"+ placeName +'"';
 		}
 		
-		// do request
-		request({
-			uri    : config.url,
-			method : config.method | 'GET',
-			data   : config.data   | null
-		}, handler );		
+		return this.placesList[ placeName ];
 	},
 	
-	getPlacesList : function()
+	/**
+	 * Loads program of given place
+	 * 
+	 * @param placeName {String}
+	 * @param date      {Date}
+	 * @param callback  {Function}
+	 */
+	loadProgram : function( placeName, date, callback )
 	{
-		return this.placesList;
-	},
-	
-	addProgramItem : function( place, item )
-	{
-		item.place = place;
-		
-		this.program.addItem( item );
+		this.getPlace( placeName ).loadProgram( date, callback );
 	}
 };
 

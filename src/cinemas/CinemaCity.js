@@ -1,5 +1,6 @@
 var Cinema = require('../Cinema.js'),
-    doCallback = require('../utils.js').doCallback;
+    doCallback = require('../utils.js').doCallback,
+    httpLoader = require('../utils.js').httpLoaderFn;
 
 module.exports = new Cinema( 'CinemaCity',
 {	
@@ -14,51 +15,31 @@ module.exports = new Cinema( 'CinemaCity',
 		var me  = this,
 		    url = 'http://www.cinemacity.cz';
 		
-		me.httpLoaderFn( url, function( window ) {
-			me.list = me.buildPlacesList_parsePlaces( window );
+		httpLoader( url, function( window ) {
+			var jQuery = window.jQuery;
+			
+			try {			
+				jQuery('#vyber_kina').find( 'a' ).each( function( i ) {
+					var url   = this.href,
+					    name  = this.childNodes[0].alt,
+					    idMatches = /program=(\w+)/.exec( url );
+						
+					// not a valid place
+					if( idMatches == null ) {
+						return;
+					}
+					
+					var id = idMatches[1];
+					
+					me.addPlace( id, name, url, me.place_loadProgram );
+				});
+				
+			} catch( e ) {
+				throw "Failed on parsing CinemaCity places list";
+			}
 			
 			doCallback( callback, [ me ]);
 		});
-	},
-
-	/**
-	 * Parses list of available places from web page
-	 * 
-	 * @private
-	 * @returns {Object}
-	 */
-	buildPlacesList_parsePlaces : function( window )
-	{
-		var me     = this,
-		    jQuery = window.jQuery,
-		    places = {};
-		
-		try {			
-			jQuery('#vyber_kina').find( 'a' ).each( function( i ) {
-				var url   = this.href,
-				    title = this.childNodes[0].alt,
-				    idMatches = /program=(\w+)/.exec( url );
-					
-				// not a valid place
-				if( idMatches == null ) {
-					return;
-				}
-				
-				var id = idMatches[1];
-				
-				places[ id ] = {
-					cinema    : me,
-					url       : url,
-					title     : title,
-					programId : id
-				};
-			});
-			
-		} catch( e ) {
-			throw "Failed on parsing CinemaCity places list";
-		}
-		
-		return places;
 	},
 	
 	/**
@@ -68,80 +49,44 @@ module.exports = new Cinema( 'CinemaCity',
 	 * @param {Date}   date
 	 * @return {Program}
 	 */
-	loadProgram : function( place, date, callback )
-	{		
-		var me      = this,
-		    dateStr = date.getFullYear() +'-'+ date.getMonth() +'-'+ date.getDay(),
-		    url     = 'http://www.cinemacity.cz/index.php?action=10101&program='+ place +'&date='+ dateStr;
-		
-		me.httpLoaderFn( url, function( window ) {
-			me.loadProgram_parse( window, place, date );
-			
-			doCallback( callback, [ me ]);
-		});
-	},
-
-	/**
-	 * Parses program from page
-	 * 
-	 * @private
-	 * @returns {Program}
-	 */
-	loadProgram_parse : function( window, place, date )
+	place_loadProgram : function( date, callback )
 	{
-		var me     = this,
-	        jQuery = window.jQuery;
+		var me      = this,
+		    dateStr = date.getFullYear() +'-'+ ( date.getMonth() + 1 ) +'-'+ date.getDate(),
+		    url     = 'http://www.cinemacity.cz/index.php?action=10101&program='+ me.id +'&date='+ dateStr;
 		
-		try {
-			jQuery('#program').find( 'tr' ).each( function( i ) {
-			    if( i == 0 ) {
-			        return;
-			    }
-			    
-				var tableRow  = this,
-				    titleCol  = tableRow.children[0],
-				    langCol   = tableRow.children[2];
+		httpLoader( url, function( window ) {
+			var jQuery = window.jQuery,
+			    events = [];
+			
+			jQuery('#program').find( 'tr' ).each( function( i ) {				
+				// skip header row
+				if( i == 0 ) {
+					return;
+				}
 				
-				me.addProgramItem( place, {
-			    	title        : titleCol.children[0].innerHTML,
-			    	hasDubbing   : langCol.innerHTML == 'DAB',
-			    	hasSubtitles : langCol.innerHTML == 'ČT',
-			    	times        : me.loadProgram_pickMovieTimes( window, date, tableRow )
-			    });
+				// parse title
+				var title = this.children[0].children[0].innerHTML;
+				
+				// parse lang infos
+				var langCol      = this.children[2],
+					hasSubtitles = langCol.innerHTML == 'ČT',
+				    hasDubbing   = langCol.innerHTML == 'DAB';
+				
+				// parse play times
+				jQuery( this ).find( '.rezervace' ).each( function() {
+					var startDate = me.parseTime( date, this.innerHTML );
+					
+					events.push( me.createEvent({
+						name         : title,
+						startDate    : startDate,
+						hasSubtitles : hasSubtitles,
+						hasDubbing   : hasDubbing
+					}) );
+				} );
 			});
 			
-		} catch( e ) {
-			throw "Failed on parsing CinemaCity program";
-		}
-		
-		return program;
-	},
-
-	/**
-	 * Picks time of play within supplied program row
-	 * 
-	 * @param   {Date}   date
-	 * @param   {}       tableRow
-	 * @param   {Object} window
-	 * @returns {Array}
-	 */
-	loadProgram_pickMovieTimes : function( window, date, tableRow )
-	{
-		var times  = [],
-            jQuery = window.jQuery;
-		
-		jQuery( tableRow ).find( '.rezervace' ).each( function() {
-			var timeParts = /(\d{1,2})[:\.\-](\d{1,2})/.exec( this.innerHTML ),
-			    localDate = new Date( date );
-			
-			if( timeParts == null ) {
-				return;
-			}
-			
-			localDate.setHours( timeParts[1], timeParts[2], 0, 0 );
-			times.push( localDate );
-		} );
-		
-		return times;
+			doCallback( callback, [ events ]);
+		});
 	}
 });

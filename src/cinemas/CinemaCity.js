@@ -1,4 +1,7 @@
-defineCinema( 'CinemaCity',
+var Cinema = require('../Cinema.js'),
+    doCallback = require('../utils.js').doCallback;
+
+module.exports = new Cinema( 'CinemaCity',
 {	
 	/**
 	 * Builds list of available places
@@ -24,9 +27,10 @@ defineCinema( 'CinemaCity',
 	 * @private
 	 * @returns {Object}
 	 */
-	buildPlacesList_parsePlaces : function( jQuery )
+	buildPlacesList_parsePlaces : function( window )
 	{
 		var me     = this,
+		    jQuery = window.jQuery,
 		    places = {};
 		
 		try {			
@@ -66,12 +70,12 @@ defineCinema( 'CinemaCity',
 	 */
 	loadProgram : function( place, date, callback )
 	{		
-		var me  = this,
+		var me      = this,
 		    dateStr = date.getFullYear() +'-'+ date.getMonth() +'-'+ date.getDay(),
-		    url = 'http://www.cinemacity.cz/index.php?action=10101&program='+ place +'&date='+ dateStr;
+		    url     = 'http://www.cinemacity.cz/index.php?action=10101&program='+ place +'&date='+ dateStr;
 		
-		me.httpLoaderFn( url, function( jQuery ) {
-			me.loadProgram_parse( jQuery, place, date );
+		me.httpLoaderFn( url, function( window ) {
+			me.loadProgram_parse( window, place, date );
 			
 			doCallback( callback, [ me ]);
 		});
@@ -83,9 +87,10 @@ defineCinema( 'CinemaCity',
 	 * @private
 	 * @returns {Program}
 	 */
-	loadProgram_parse : function( jQuery, place, date )
+	loadProgram_parse : function( window, place, date )
 	{
-		var me = this;
+		var me     = this,
+	        jQuery = window.jQuery;
 		
 		try {
 			jQuery('#program').find( 'tr' ).each( function( i ) {
@@ -101,7 +106,7 @@ defineCinema( 'CinemaCity',
 			    	title        : titleCol.children[0].innerHTML,
 			    	hasDubbing   : langCol.innerHTML == 'DAB',
 			    	hasSubtitles : langCol.innerHTML == 'ČT',
-			    	times        : me.loadProgram_pickMovieTimes( jQuery, date, tableRow )
+			    	times        : me.loadProgram_pickMovieTimes( window, date, tableRow )
 			    });
 			});
 			
@@ -120,9 +125,10 @@ defineCinema( 'CinemaCity',
 	 * @param   {Object} window
 	 * @returns {Array}
 	 */
-	loadProgram_pickMovieTimes : function( jQuery, date, tableRow )
+	loadProgram_pickMovieTimes : function( window, date, tableRow )
 	{
-		var times = [];
+		var times  = [],
+            jQuery = window.jQuery;
 		
 		jQuery( tableRow ).find( '.rezervace' ).each( function() {
 			var timeParts = /(\d{1,2})[:\.\-](\d{1,2})/.exec( this.innerHTML ),

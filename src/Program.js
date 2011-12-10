@@ -1,42 +1,65 @@
+/**
+ * Program object
+ * 
+ * @class Program
+ */
 var Program = function( location )
 {
-	this.items = {};
-}; 
+	this.items   = [];
+	this.movies  = {};
+	this.cinemas = {};
+};
 
-Program.prototype =
-{
-	items : null,
+Program.prototype = {
+	items   : null,
+	movies  : null,
+	cinemas : null,
 	
-	findItem : function( movieObj )
+	find : function( list, matchObj )
 	{
-		var title = movieObj.title;
-		
-		if( this.items.hasOwnProperty( title ) === false ) {
-			return false;
-		}
-		
-		var item = this.items[ title ];
-		
-		if( item.hasDubbing !== movieObj.hasDubbing ||
-			item.hasSubtitles !== movieObj.hasSubtitles
-		) {	
-			return false;
-		}
-		
-		return item;
+		return list.find( function( item ) {
+			var item  = list[ i ];
+			console.log(item);
+			for( var prop in matchObj ) {
+				if( item[ prop ] !== matchObj[ prop ] ) {
+					return false;
+				}
+			}
+			
+			return true;
+		});
 	},
 	
 	addItem : function( movieObj )
 	{
-		var item = this.findItem( movieObj );
+		var me = this;
 		
-		if( item !== false ) {
-			item.times.push.apply( item.times, movieObj.times );
+		// pick movie
+		var movieTitle = movieObj.title;
+		
+		if( me.movies.hasOwnProperty( movieTitle ) === false ) {
+			me.movies[ movieTitle ] = {
+				title : movieTitle
+			};
+		}
+		
+		var movie = me.movies[ movieTitle ];
+		
+		var item;
+		for( var i = 0, tl = movieObj.times.length; i < tl; ++i ) {			
+			item = {
+				place        : movieObj.place,
+				movie        : movie,
+				hasDubbing   : movieObj.hasDubbing,
+				hasSubtitles : movieObj.hasSubtitles,
+				time         : movieObj.times[ i ]
+			};
 			
-		} else {
-			this.items[ movieObj.title ] = movieObj;
+			if( me.find( me.items, item ).length === 0 ) {
+				me.items.push( item );
+			}
 		}
 	}
 };
 
-module.exports = program;
+module.exports = Program;

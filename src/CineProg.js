@@ -1,251 +1,47 @@
-// utilities
-var abstractFn = function() {};
+var Program = require('./Program.js'),
+    Cinema  = require('./Cinema.js'),
+    doCallback = require('./utils.js').doCallback;
 
-var doCallback = function( callback, args )
-{
-	if( callback == null ) {
-		return true;
-	}
-	
-	if( typeof callback === 'function' ) {
-		callback = [ callback, {} ];
-	}
-	
-	if( typeof callback === 'object' && callback.length === 2 ) {
-		return callback[0].apply( callback[1], args );
-	}
-	
-	throw "Invalid callback definition supplied";
-};
-	
+var cinemasRegistry = {};
+
 /**
- * Program object
+ * Returns cinema instance
  * 
- * @class Program
+ * @private
+ * @param {Stirng} cinema
  */
-var Program = function( location )
+var getCinema =  function( cinema )
 {
-	this.items   = [];
-	this.movies  = {};
-	this.cinemas = {};
-};
-
-Program.prototype = {
-	items   : null,
-	movies  : null,
-	cinemas : null,
-	
-	find : function( list, matchObj )
-	{
-		return list.find( function( item ) {
-			var item  = list[ i ];
-			console.log(item);
-			for( var prop in matchObj ) {
-				if( item[ prop ] !== matchObj[ prop ] ) {
-					return false;
-				}
-			}
-			
-			return true;
-		});
-	},
-	
-	addItem : function( movieObj )
-	{
-		var me = this;
-		
-		// pick movie
-		var movieTitle = movieObj.title;
-		
-		if( me.movies.hasOwnProperty( movieTitle ) === false ) {
-			me.movies[ movieTitle ] = {
-				title : movieTitle
-			};
-		}
-		
-		var movie = me.movies[ movieTitle ];
-		
-		var item;
-		for( var i = 0, tl = movieObj.times.length; i < tl; ++i ) {			
-			item = {
-				place        : movieObj.place,
-				movie        : movie,
-				hasDubbing   : movieObj.hasDubbing,
-				hasSubtitles : movieObj.hasSubtitles,
-				time         : movieObj.times[ i ]
-			};
-			
-			if( me.find( me.items, item ).length === 0 ) {
-				me.items.push( item );
-			}
-		}
-	}
+	return cinemasRegistry[ cinema ];
 };
 
 /**
- * Cinema object
- * 
- * @class Cinema
- */
-var Cinema = function( name )
-{
-	this.name       = name;
-	this.placesList = {};
-};
-
-Cinema.prototype = {
-	name         : null,
-	program      : null,
-	httpLoaderFn : null,
-	placesList   : null,
-	
-	buildPlacesList : abstractFn, 
-	loadProgram     : abstractFn,
-	
-	init : function( program, httpLoaderFn, callback )
-	{
-		this.program      = program;
-		this.httpLoaderFn = httpLoaderFn;
-		this.buildPlacesList( callback );		
-	},
-	
-	getPlacesList : function()
-	{
-		return this.placesList;
-	},
-	
-	addProgramItem : function( place, item )
-	{
-		item.place = place;
-		
-		this.program.addItem( item );
-	}
-};
-
-var WindowCtx = function( document, jQuery )
-{
-	this.document = document;
-	this.jQuery   = jQuery;
-};
-
-WindowCtx.prototype = {
-	document : null,
-	jQuery   : null
-};
-	
-var loadPage = null;
-	
-// NodeJS environment
-if( typeof module !== 'undefined' && module.exports ) {
-	
-	var request = require('request');
-	var jsdom   = require('jsdom');
-	
-	loadPage = function( config, callback ) {
-		console.log( '>>> load page', config );
-		
-		var handler = function( error, response, body ) {
-			console.log( '>>> page loaded', config );
-			
-			if( error && response.statusCode !== 200 ) {
-				console.log('Error when contacting google.com');
-			}
-			
-			jsdom.env({
-				html    : body,
-				scripts : [ 'http://code.jquery.com/jquery-1.5.min.js' ],
-				done    : function( error, window ) {
-					doCallback( callback, [ window.document, window.jQuery ]);
-				}
-			});
-		};
-		
-		if( typeof config !== 'object' ) {
-			config = {
-				url : config
-			};
-		}
-		
-		// do request
-		request({
-			uri    : config.url,
-			method : config.method | 'GET',
-			data   : config.data   | null
-		}, handler );		
-	};
-	
-// browser environment	
-} else {		
-	loadPage = function( config, callback ) {
-		console.log( '>>> load page', config );
-		
-		if( typeof config !== 'object' ) {
-			config = {
-				url    : config,
-				method : 'get',
-				data   : {}
-			};
-			
-		} else {
-			config = {
-				url    : config.url,
-				method : config.method | 'get',
-				data   : config.data   | {}
-			};
-		}
-		
-		var iframeID = 'abcdefg';
-		
-		var formItems = [];
-		for( var idx in config.data ) {
-			formItems.push( '<input name="'+ idx +'" value="'+ config.data[ idx ] +'" />' );
-		}
-		
-		var loadFrame = jQuery(
-			'<div style="width:0px;height:0px;display:none;">'+
-				'<iframe name="'+ iframeID +'" id="'+ iframeID +'"></iframe>'+
-				'<form action="'+ config.url +'" method="'+ config.method +'" target="'+ iframeID +'">'+ formItems.join('') +'</form>'+
-			'</div>'
-		);
-		
-		loadFrame.find( 'iframe' ).bind( 'load', function() {			
-			console.log( '>>> page loaded', config );
-			
-			jQuery( this.contentDocument ).ready( function( localJQ ) {
-				doCallback( callback, [ this.contentDocument, localJQ ]);
-				loadFrame.remove();
-			});
-		});
-
-		loadFrame.appendTo('body');
-		loadFrame.find('form').submit();
-	};
-}
-
-var loaders = {};
-
-/**
- * Defines new program loader
+ * Defines new program loaders
  * 
  * @public
- * @param {String} name
- * @param {Object} definition
+ * @param {Cinema} cinemas
  */
-var defineCinema = function( name, definition )
-{	
-	var loader = new Cinema();
+var registerCinemas = function( cinemas )
+{
+	var cinema,
+	    names = [];
 	
-	for( var item in definition ) {
-		if( definition.hasOwnProperty( item ) === false ) {
-			continue;
+	for( var i = 0, cl = cinemas.length; i < cl; ++i ) {
+		cinema = cinemas[ i ];
+		
+		if( typeof cinema === 'string' ) {
+			cinema = require( './cinemas/'+ cinema +'.js' );
 		}
 		
-		loader[ item ] = definition[ item ];
+		if( cinema instanceof Cinema === false ) {
+			throw "Invalid cinema "+ cinema;
+		}
+		
+		cinemasRegistry[ cinema.name ] = cinema;
+		names.push( cinema.name );
 	}
-	
-	
-	loaders[ name ] = loader;
 };
+
 
 /**
  * Initializes supplied loaders
@@ -254,25 +50,30 @@ var defineCinema = function( name, definition )
  * @param {Array}    loaderNames list of loader names
  * @param {Function} callback    done callback
  */
-var initCinemas = function( loaderNames, program, callback )
+var initCinemas = function( cinemas, program, callback )
 {
-	var loadersNo = loaderNames.length;
+	var loadersNo = cinemas.length;
 	
-	for( var i = 0, ln = loaderNames.length; i < ln; ++i ) {
-		var loaderName = loaderNames[ i ];
+	for( var i = 0, cl = cinemas.length; i < cl; ++i ) {
+		var name   = cinemas[ i ],
+		    cinema = getCinema( name );
 				
-		if( loaders[ loaderName ] == null ) {
-			throw "Invalid loader name '"+ loaderName +"'";
+		if( cinema == null ) {
+			throw "Invalid cinema '"+ name +"'";
 		}
 		
-		console.log( '   - starting initialization of '+ loaderName +' loader' );
-		loaders[ loaderName ].init( program, loadPage, function() {
-			console.log( '   - '+ loaderName +' loader initialized' );
+		console.log( '   - starting initialization of '+ name +' loader' );
+		cinema.init( program, function() {
+			var lName = name;
 			
-			if( --loadersNo === 0 && callback ) {
-				doCallback( callback );
-			}
-		});
+			return function() {
+				console.log( '   - '+ lName +' loader initialized' );
+				
+				if( --loadersNo === 0 ) {
+					doCallback( callback );
+				}
+			};
+		}() );
 	}
 };
 
@@ -286,18 +87,18 @@ var initCinemas = function( loaderNames, program, callback )
  */
 var loadProgram = function( cinema, place, date, program, callback )
 {
-	if( loaders[ cinema ] == null ) {
+	if( cinemasRegistry[ cinema ] == null ) {
 		throw "Invalid loader name '"+ loaderName +"'";
 	}
 	
 	console.log( "Loading "+ cinema +" - "+ place +" program on "+ date );
 	
-	loaders[ cinema ].loadProgram( place, date, program, callback );
+	cinemasRegistry[ cinema ].loadProgram( place, date, program, callback );
 };
 
 // export public items
-exports.Program      = Program;
-exports.defineCinema = defineCinema;
-exports.initCinemas  = initCinemas;
-exports.loadProgram  = loadProgram;
-exports.loaders      = loaders;
+exports.Program         = Program;
+exports.Cinema          = Cinema;
+exports.registerCinemas = registerCinemas;
+exports.initCinemas     = initCinemas;
+exports.loadProgram     = loadProgram;

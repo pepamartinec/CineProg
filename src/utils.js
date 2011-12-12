@@ -54,7 +54,23 @@ var httpLoaderFn = function( config, callback ) {
 
 var abstractFn = function() { throw 'Unimplemented abstract function'; };
 
+var dataStoreCb = function( flow, interceptorFn )
+{
+	var flowCb = flow.add();
+	
+	return function( success, results ) {
+		doCallback( interceptorFn, arguments );
+		
+		if( success ) {
+			flowCb.call( this, null, results );
+		} else {
+			flowCb.call( this, results );
+		}
+	};
+};
+
 // public module interface
 exports.doCallback   = doCallback;
 exports.httpLoaderFn = httpLoaderFn;
 exports.abstractFn   = abstractFn;
+exports.dataStoreCb  = dataStoreCb;

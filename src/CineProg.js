@@ -1,20 +1,12 @@
 var Cinema  = require('./Cinema.js'),
     ProgramCache = require('./ProgramCache.js'),
-    doCallback = require('./utils.js').doCallback;
+    doCallback = require('./utils.js').doCallback,
+    rdfstore = require('rdfstore'),
+    asyncblock  = require('asyncblock');
 
 var cinemasRegistry = {};
-var programCache = new ProgramCache();
 
-/**
- * Returns cinema instance
- * 
- * @private
- * @param {Stirng} cinema
- */
-var getCinema =  function( cinema )
-{
-	return cinemasRegistry[ cinema ];
-};
+var dataStore = rdfstore.create();
 
 /**
  * Defines new program loaders
@@ -22,60 +14,37 @@ var getCinema =  function( cinema )
  * @public
  * @param {Cinema} cinemas
  */
-var registerCinemas = function( cinemas )
+var registerCinemas = function( cinemas, callback )
 {
-	var cinema,
-	    names = [];
-	
-	for( var i = 0, cl = cinemas.length; i < cl; ++i ) {
-		cinema = cinemas[ i ];
-		
-		if( typeof cinema === 'string' ) {
-			cinema = require( './cinemas/'+ cinema +'.js' );
-		}
-		
-		if( cinema instanceof Cinema === false ) {
-			throw "Invalid cinema "+ cinema;
-		}
-		
-		cinemasRegistry[ cinema.name ] = cinema;
-		names.push( cinema.name );
-	}
-};
-
-
-/**
- * Initializes supplied loaders
- * 
- * @public
- * @param {Array}    loaderNames list of loader names
- * @param {Function} callback    done callback
- */
-var initCinemas = function( cinemas, callback )
-{
-	var loadersNo = cinemas.length;
-	
-	for( var i = 0, cl = cinemas.length; i < cl; ++i ) {
-		var name   = cinemas[ i ],
-		    cinema = getCinema( name );
-				
-		if( cinema == null ) {
-			throw "Invalid cinema '"+ name +"'";
-		}
-		
-		console.log( '   - starting initialization of '+ name +' loader' );
-		cinema.init( function() {
-			var lName = name;
+	asyncblock( function( flow ) {		
+		for( var i = 0, cl = cinemas.length; i < cl; ++i ) {
+			var cinema = cinemas[ i ];
 			
-			return function() {
-				console.log( '   - '+ lName +' loader initialized' );
+			if( typeof cinema === 'string' ) {
+				cinema = require( './cinemas/'+ cinema +'.js' );
+			}
+			
+			if( cinema instanceof Cinema === false ) {
+				throw "Invalid cinema "+ cinema;
+			}
+			
+			cinemasRegistry[ cinema.name ] = cinema;
+			
+			console.log( '   - starting initialization of '+ cinema.name +' loader' );
+			cinema.init( function() {
+				var flowCb  = flow.add(),
+				    lCinema = cinema;
 				
-				if( --loadersNo === 0 ) {
-					doCallback( callback );
-				}
-			};
-		}() );
-	}
+				return function() {
+					console.log( '   - '+ lCinema.name +' loader initialized' );
+					cinema.register( dataStore, flowCb );
+				};
+			}() );
+		}
+		
+		flow.wait();
+		doCallback( callback );
+	});
 };
 
 /**
@@ -100,24 +69,26 @@ var loadProgram = function( cinemaName, placeName, date, callback )
 	
 	console.log( "Loading "+ place.cinema.name +" - "+ place.name +" program for "+ date );
 	
-	programCache.loadProgram( place, date, callback );
+	place.loadProgram( date, dataStore, callback );
 };
 
 /**
  * 
  */
-var search = function( filterFn )
+var search = function( query, callback )
 {
-	return programCache.search( filterFn );
+	dataStore.execute( query, function( success, result ) {
+		if( success ) {
+			doCallback( callback, [ result ]);
+			
+		} else {
+			throw new Error( result );
+		}
+	});
 };
 
 // export public items
 exports.Cinema          = Cinema;
 exports.registerCinemas = registerCinemas;
-exports.initCinemas     = initCinemas;
 exports.loadProgram     = loadProgram;
 exports.search          = search;
-
-// !!! DEBUG !!!
-exports.cinemas = cinemasRegistry;
-exports.cache   = programCache;

@@ -14,81 +14,78 @@ module.exports = new Cinema( 'CinemaCity',
 	 */
 	buildPlacesList : function( callback )
 	{
-		var me  = this,
-		    url = 'http://www.cinemacity.cz';
+		var me        = this,
+		    cinemaUrl = 'http://www.cinemacity.cz';
 		
-		httpLoader( url, function( window ) {
+		httpLoader( cinemaUrl, function( window ) {
 			var jQuery = window.jQuery;
-			
-			try {			
-				jQuery('#vyber_kina').find( 'a' ).each( function( i ) {
-					var url   = this.href,
-					    name  = this.childNodes[0].alt,
-					    idMatches = /program=(\w+)/.exec( url );
 						
-					// not a valid place
-					if( idMatches == null ) {
-						return;
-					}
+			jQuery('#vyber_kina').find( 'a' ).each( function( i ) {
+				var url   = this.href,
+				    name  = this.childNodes[0].alt,
+				    idMatches = /program=(\w+)/.exec( url );
 					
-					var id = idMatches[1];
-					
-					me.addPlace( id, name, url, me.place_loadProgram );
-				});
+				// not a valid place
+				if( idMatches == null ) {
+					return;
+				}
 				
-			} catch( e ) {
-				throw "Failed on parsing CinemaCity places list";
-			}
+				var id = idMatches[1];
+				
+				me.addPlace({
+					id   : id,
+					name : name,
+					url  : cinemaUrl +'/index.php?action=10101&program='+ id,
+					
+					programParser : me.parseProgram,
+					programUrlGen : function( date ) {
+						dateStr = date.getFullYear() +'-'+ ( date.getMonth() + 1 ) +'-'+ date.getDate();
+						return this.url +'&date='+ dateStr;
+					}
+				});
+			});
 			
-			doCallback( callback, [ me ]);
+			doCallback( callback );
 		});
 	},
 	
 	/**
 	 * Loads program for given date & place
 	 * 
-	 * @param {String} place
-	 * @param {Date}   date
-	 * @return {Program}
+	 * @param {Window}   window
+	 * @param {Date}     date
+	 * @param {Function} registerEvent
 	 */
-	place_loadProgram : function( date, callback )
+	parseProgram : function( window, date, registerEvent )
 	{
-		var me      = this,
-		    dateStr = date.getFullYear() +'-'+ ( date.getMonth() + 1 ) +'-'+ date.getDate(),
-		    url     = 'http://www.cinemacity.cz/index.php?action=10101&program='+ me.id +'&date='+ dateStr;
+		var me     = this,
+		    jQuery = window.jQuery;
 		
-		httpLoader( url, function( window ) {
-			var jQuery = window.jQuery,
-			    events = [];
+		jQuery('#program').find( 'tr' ).each( function( i ) {
+			// skip header row
+			if( i == 0 ) {
+				return;
+			}
 			
-			jQuery('#program').find( 'tr' ).each( function( i ) {				
-				// skip header row
-				if( i == 0 ) {
-					return;
-				}
-				
-				// parse title
-				var title = this.children[0].children[0].innerHTML;
-				
-				// parse lang infos
-				var langCol      = this.children[2],
-					hasSubtitles = langCol.innerHTML == 'ČT',
-				    hasDubbing   = langCol.innerHTML == 'DAB';
-				
-				// parse play times
-				jQuery( this ).find( '.rezervace' ).each( function() {
-					var startDate = me.parseTime( date, this.innerHTML );
-					
-					events.push( me.createEvent({
-						name         : title,
-						startDate    : startDate,
-						hasSubtitles : hasSubtitles,
-						hasDubbing   : hasDubbing
-					}) );
-				} );
-			});
+			// parse title
+			var title = this.children[0].children[0].innerHTML;
 			
-			doCallback( callback, [ events ]);
+			// parse lang infos
+			var langCol      = this.children[2],
+				hasSubtitles = langCol.innerHTML == 'ČT',
+			    hasDubbing   = langCol.innerHTML == 'DAB';
+			
+			// parse play times
+			jQuery( this ).find( '.rezervace' ).each( function() {
+				var startDate = me.parseTime( date, this.innerHTML );
+				
+				registerEvent({
+					name         : title,
+					startDate    : startDate,
+					hasSubtitles : hasSubtitles,
+					hasDubbing   : hasDubbing
+				});
+			} );
 		});
 	}
 });

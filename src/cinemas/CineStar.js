@@ -14,10 +14,10 @@ module.exports = new Cinema( 'CineStar',
 	 */
 	buildPlacesList : function( callback )
 	{
-		var me  = this,
-		    url = 'http://www.cinestar.cz/vyber-kina/';
+		var me        = this,
+		    cinemaUrl = 'http://www.cinestar.cz/vyber-kina/';
 		
-		httpLoader( url, function( window ) {
+		httpLoader( cinemaUrl, function( window ) {
 			var jQuery  = window.jQuery,
 			    counter = 0;
 			
@@ -42,7 +42,22 @@ module.exports = new Cinema( 'CineStar',
 					return function( window ) {
 						var url = window.jQuery('#menu .program a').attr('href');
 						
-						me.addPlace( id, name, url, me.place_loadProgram );
+						me.addPlace({
+							id   : id,
+							name : name,
+							url  : url,
+							
+							programParser : me.parseProgram,
+							programUrlGen : function( date ) {
+								return {
+									url    : this.url,
+									method : 'POST',
+									data   : {
+										datum : date.valueOf().toString().slice( 0, -3 ) // strip milisecs
+									}
+								};
+							}
+						});
 						
 				    	if( --counter <= 0 ) {
 				    		doCallback( callback, [ me.placesList ]);
@@ -56,75 +71,62 @@ module.exports = new Cinema( 'CineStar',
 	/**
 	 * Loads program for given date & place
 	 * 
+	 * @param {Window}   window
 	 * @param {Date}     date
-	 * @param {Function} callback
+	 * @param {Function} registerEvent
 	 */
-	place_loadProgram : function( date, callback )
+	parseProgram : function( window, date, registerEvent )
 	{
-		var me = this;	
+		var me     = this,
+		    jQuery = window.jQuery;
 		
-		var config = {
-			url    : me.url,
-			method : 'POST',
-			data   : {
-				datum : date.valueOf().toString().slice( 0, -3 ) // strip milisecs
-			}
-		};
-		
-		httpLoader( config, function( window ) {
-			var jQuery = window.jQuery,
-			    events = [];
-			
-			jQuery('.table-program').each( function() {
-				jQuery( this ).find( 'tr' ).each( function( i ) {
-					// skip head row
-				    if( i == 0 ) {
-				        return;
-				    }
+		jQuery('.table-program').each( function() {
+			jQuery( this ).find( 'tr' ).each( function( i ) {
+				// skip head row
+			    if( i == 0 ) {
+			        return;
+			    }
+				
+				// parse title
+				var title = this.children[1].childNodes[1].childNodes[2].innerHTML;
 					
-					// parse title
-					var title = this.children[1].childNodes[1].childNodes[2].innerHTML;
-						
-						// remove garbage around movie title
-						title = title.replace( ' FFF', '' );
-						title = title.replace( ' (Digital)', '' );
-						title = title.replace( ' (digital)', '' );
-						title = title.replace( ' - titulky', '' );
-						title = title.replace( ' - dabing', '' );
-						title = title.replace( ' GC', '' );
-						title = title.trim();
+					// remove garbage around movie title
+					title = title.replace( ' FFF', '' );
+					title = title.replace( ' (Digital)', '' );
+					title = title.replace( ' (digital)', '' );
+					title = title.replace( ' - titulky', '' );
+					title = title.replace( ' - dabing', '' );
+					title = title.replace( ' GC', '' );
+					title = title.trim();
+				
+				// parse lang infos
+				var hasSubtitles = false,
+				    hasDubbing   = false;
 					
-					// parse lang infos
-					var hasSubtitles = false,
-					    hasDubbing   = false;
-						
-					jQuery( this.children[2] ).find('span').each( function() {
-						if( this.style.display == 'none' ) {
-							return;
-						}
-						
-						switch( this.innerHTML ) {
-							case 'T' : hasSubtitles = true; break;
-							case 'D' : hasDubbing   = true; break;
-						}
-					});
+				jQuery( this.children[2] ).find('span').each( function() {
+					if( this.style.display == 'none' ) {
+						return;
+					}
 					
-					// parse play times
-					jQuery( this ).find( '.active' ).each( function() {
-						var startDate = me.parseTime( date, this.innerHTML );
-						
-						events.push( me.createEvent({
-							name         : title,
-							startDate    : startDate,
-							hasSubtitles : hasSubtitles,
-							hasDubbing   : hasDubbing
-						}) );
-					} );
-					
+					switch( this.innerHTML ) {
+						case 'T' : hasSubtitles = true; break;
+						case 'D' : hasDubbing   = true; break;
+					}
 				});
+				
+				// parse play times
+				jQuery( this ).find( '.active' ).each( function() {
+					var startDate = me.parseTime( date, this.innerHTML );
+					
+					registerEvent({
+						name         : title,
+						startDate    : startDate,
+						hasSubtitles : hasSubtitles,
+						hasDubbing   : hasDubbing
+					});
+				} );
+				
 			});
-			
-			doCallback( callback, [ events ]);
 		});
 	}
 });

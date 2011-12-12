@@ -1,5 +1,8 @@
 var CinemaPlace = require('./CinemaPlace.js'),
-    abstractFn  = require('./utils.js').abstractFn;
+    abstractFn  = require('./utils.js').abstractFn,
+    doCallback  = require('./utils.js').doCallback,
+    dataStoreCb = require('./utils.js').dataStoreCb,
+    asyncblock  = require('asyncblock');
 
 /**
  * Cinema object prototype
@@ -8,7 +11,7 @@ var CinemaPlace = require('./CinemaPlace.js'),
  */
 var Cinema = function( id, definition )
 {
-	this.id       = id;
+	this.id         = 'http://cineprog.local/cinemas/'+ id;
 	this.placesList = {};
 	
 	for( var item in definition ) {
@@ -23,33 +26,58 @@ var Cinema = function( id, definition )
 Cinema.prototype = {
 	id         : null,
 	name       : null,
+	
+	/**
+	 * @var {Object} placesList
+	 */
 	placesList : null,
 	
 	buildPlacesList : abstractFn,
 	
 	init : function( callback )
 	{
-		this.buildPlacesList( callback );		
+		this.buildPlacesList( callback );
+	},
+	
+	register : function( dataStore, callback )
+	{
+		var cinema = this;
+		
+		asyncblock( function( flow ) {
+			// register self
+			var obj = {
+				'@context' : {
+					'sch' : 'http://www.schema.org/'
+				},
+				
+				'@subject' : cinema.id,
+				'@type'    : 'sch:Organization',
+				'sch:name' : cinema.name,
+				'sch:url'  : ''
+			};
+			
+			dataStore.load( 'application/json', obj, dataStoreCb( flow ) );
+			
+			// register places
+			for( var id in cinema.placesList ) {
+				cinema.placesList[ id ].register( dataStore, flow );
+			}
+			
+			// synchronize
+			flow.wait();
+			
+			doCallback( callback );
+		});
 	},
 	
 	/**
 	 * Adds new cinema place
 	 * 
-	 * @param id
-	 * @param name
-	 * @param url
-	 * @param programLoaderFn
+	 * @param {Object} def
 	 */
-	addPlace : function( id, name, url, programLoaderFn )
+	addPlace : function( def )
 	{
-		this.placesList[ id ] = new CinemaPlace( this, id, {
-			name : name,
-			url  : url,
-			
-			loadProgram : this.place_loadProgram
-		});
-		
-		console.log( 'New place for '+this.name+' cinema registered - '+name+' ('+id+')' );
+		this.placesList[ def.id ] = new CinemaPlace( this, def );
 	},
 	
 	/**

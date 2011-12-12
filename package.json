@@ -8,6 +8,7 @@
 		"asyncblock" : ">=0.0.7",
 		"request"    : ">=2.2.9",
 		"jsdom"      : ">=0.2.10",
-		"jquery"     : "1.6.x"
+		"jquery"     : "1.6.x",
+		"restify"    : ">=0.5.5"
 	}
 }

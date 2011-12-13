@@ -1,11 +1,10 @@
-var Event      = require('./Event.js'),
+var CineProg    = require('./CineProg.js'),
+    Event      = require('./Event.js'),
     abstractFn = require('./utils.js').abstractFn,
     doCallback = require('./utils.js').doCallback,
     dataStoreCb = require('./utils.js').dataStoreCb,
     asyncblock  = require('asyncblock'),
     httpLoader = require('./utils.js').httpLoaderFn;
-
-var eventsCounter = 0;
 
 /**
  * CinemaPlace object prototype
@@ -14,43 +13,31 @@ var eventsCounter = 0;
  */
 var CinemaPlace = function( cinema, def )
 {
-	this.id     = def.id;
-	this.url    = def.url;
-	this.name   = cinema.name +' '+ def.name;
-	this.cinema = cinema;
+	this.id       = null,
+	this.codeName = def.codeName;
+	this.name     = cinema.name +' '+ def.name;
+	this.url      = def.url;
+	this.cinemaId = cinema.id;
+	this.uri      = CineProg.baseUri +'cinemas/'+ cinema.codeName +'#'+ this.codeName;
+	
+	this.cinema   = cinema;
 	
 	this.programParser = def.programParser;
 	this.programUrlGen = def.programUrlGen;
 };
 
 CinemaPlace.prototype = {
-	id     : null,
-	url    : null,
-	name   : null,
-	cinema : null,
+	id       : null,
+	codeName : null,
+	name     : null,
+	url      : null,
+	uri      : null,
+	cinemaId : null,
+	
+	cinema   : null,
 	
 	programParser : abstractFn,
 	programUrlGen : abstractFn,
-	
-	register : function( dataStore, flow )
-	{
-		var obj = {
-			'@context' : {
-				'sch' : 'http://www.schema.org/',
-				'@coerce' : {
-					'@iri' : 'sch:branchOf'
-				}
-			},
-			
-			'@subject'     : this.cinema.id +'#'+ this.id,
-			'@type'        : 'sch:MovieTheater',
-			'sch:name'     : this.name,
-			'sch:url'      : this.url,
-			'sch:branchOf' : this.cinema.id
-		};
-		
-		dataStore.load( 'application/json', obj, dataStoreCb( flow ) );
-	},
 	
 	/**
 	 * 
@@ -107,31 +94,51 @@ CinemaPlace.prototype = {
 	 * @param {Object}   def
 	 * @param {Function} callback
 	 */
-	registerEvent : function( dataStore, def, callback )
+	registerEvent : function( db, def, callback )
 	{
-		var obj = {
+		def.locationId = this.id;
+		
+		db.saveEvent( new Event( def ), callback );
+		
+//		Movie.find( db, 'name = ?', [ def.name ], function( results ) {
+//			if( results.length == 0 ) {
+//				var movie = new Movie({
+//					name : def.name
+//				});
+//				
+//				movie.save( db, function() {
+//					event.save( db, callback );
+//				});
+//				
+//			} else {
+//				event.save( db, callback );
+//			}
+//			
+//		});
+		
+	},
+	
+	/**
+	 * Returns JSON-LD representation of cinema branch
+	 * 
+	 * @returns {Object}
+	 */
+	toJson : function()
+	{
+		return {
 			'@context' : {
 				'sch' : 'http://www.schema.org/',
-				'xsd' : 'http://www.w3.org/2001/XMLSchema#',
 				'@coerce' : {
-					'@iri'         : 'sch:location',
-					'xsd:date'     : 'sch:startDate',
-					'xsd:duration' : 'sch:duration'
+					'@iri' : 'sch:branchOf'
 				}
 			},
 			
-			'@subject'      : 'http://cineprog.local/events/'+( ++eventsCounter ),
-			'@type'         : 'sch:TheaterEvent',
-			'sch:name'      : def.name,
-			'sch:startDate' : def.startDate.toISOString(),
-			'sch:duration'  : null,
-			'sch:location'  : this.url
+			'@subject'     : this.uri,
+			'@type'        : 'sch:MovieTheater',
+			'sch:name'     : this.name,
+			'sch:url'      : this.url,
+			'sch:branchOf' : CineProg.baseUri +'cinemas/'+ this.cinema.codeName
 		};
-		
-		dataStore.load( 'application/json', obj, function() {
-			console.log('NEW event : '+ def.name +' : '+ def.startDate);
-			doCallback( callback );
-		});
 	}
 };
 

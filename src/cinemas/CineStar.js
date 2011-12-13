@@ -12,7 +12,7 @@ module.exports = new Cinema( 'CineStar',
 	 * @protected
 	 * @return {Object}
 	 */
-	buildPlacesList : function( callback )
+	buildBranches : function( callback )
 	{
 		var me        = this,
 		    cinemaUrl = 'http://www.cinestar.cz/vyber-kina/';
@@ -24,7 +24,7 @@ module.exports = new Cinema( 'CineStar',
 			jQuery('#vyber-kina select').find( 'option' ).each( function( i ) {
 				var opt       = this,
 				    url       = this.value,
-				    idMatches = /\/(\w+)\//.exec( url );
+				    idMatches = /\/([\w\-]+)\//.exec( url );
 				
 				// not a valid place
 				if( url == '#' || idMatches == null ) {
@@ -32,20 +32,20 @@ module.exports = new Cinema( 'CineStar',
 				}
 				
 				// increase found places counter
-				++counter;				
+				++counter;
 				
 				// load place details
 				httpLoader( 'http://www.cinestar.cz'+ url, function() {
-					var id   = idMatches[1],
-					    name = opt.innerHTML;
+					var codeName = idMatches[1],
+					    name     = opt.innerHTML;
 					
 					return function( window ) {
 						var url = window.jQuery('#menu .program a').attr('href');
 						
 						me.addPlace({
-							id   : id,
-							name : name,
-							url  : url,
+							codeName : codeName,
+							name     : name,
+							url      : url,
 							
 							programParser : me.parseProgram,
 							programUrlGen : function( date ) {
@@ -60,7 +60,7 @@ module.exports = new Cinema( 'CineStar',
 						});
 						
 				    	if( --counter <= 0 ) {
-				    		doCallback( callback, [ me.placesList ]);
+				    		doCallback( callback );
 				    	}
 					};
 				}() );

@@ -54,23 +54,19 @@ var httpLoaderFn = function( config, callback ) {
 
 var abstractFn = function() { throw 'Unimplemented abstract function'; };
 
-var dataStoreCb = function( flow, interceptorFn )
+var applyConfig = function( target, config )
 {
-	var flowCb = flow.add();
-	
-	return function( success, results ) {
-		doCallback( interceptorFn, arguments );
-		
-		if( success ) {
-			flowCb.call( this, null, results );
-		} else {
-			flowCb.call( this, results );
+	for( var idx in config ) {
+		if( config.hasOwnProperty( idx ) === false || target[ idx ] === undefined ) {
+			continue;
 		}
-	};
+		
+		target[ idx ] = config[ idx ];
+	}	
 };
 
 // public module interface
 exports.doCallback   = doCallback;
 exports.httpLoaderFn = httpLoaderFn;
 exports.abstractFn   = abstractFn;
-exports.dataStoreCb  = dataStoreCb;
+exports.applyConfig  = applyConfig;

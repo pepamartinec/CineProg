@@ -12,7 +12,7 @@ module.exports = new Cinema( 'CinemaCity',
 	 * @protected
 	 * @return {Object}
 	 */
-	buildPlacesList : function( callback )
+	buildBranches : function( callback )
 	{
 		var me        = this,
 		    cinemaUrl = 'http://www.cinemacity.cz';
@@ -23,19 +23,19 @@ module.exports = new Cinema( 'CinemaCity',
 			jQuery('#vyber_kina').find( 'a' ).each( function( i ) {
 				var url   = this.href,
 				    name  = this.childNodes[0].alt,
-				    idMatches = /program=(\w+)/.exec( url );
+				    idMatches = /program=([\w\-]+)/.exec( url );
 					
 				// not a valid place
 				if( idMatches == null ) {
 					return;
 				}
 				
-				var id = idMatches[1];
+				var codeName = idMatches[1];
 				
 				me.addPlace({
-					id   : id,
-					name : name,
-					url  : cinemaUrl +'/index.php?action=10101&program='+ id,
+					codeName : codeName,
+					name     : name,
+					url      : cinemaUrl +'/index.php?action=10101&program='+ codeName,
 					
 					programParser : me.parseProgram,
 					programUrlGen : function( date ) {

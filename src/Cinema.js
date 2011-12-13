@@ -1,4 +1,5 @@
-var CinemaPlace = require('./CinemaPlace.js'),
+var CineProg    = require('./CineProg.js'),
+    CinemaPlace = require('./CinemaPlace.js'),
     abstractFn  = require('./utils.js').abstractFn,
     doCallback  = require('./utils.js').doCallback,
     dataStoreCb = require('./utils.js').dataStoreCb,
@@ -9,10 +10,11 @@ var CinemaPlace = require('./CinemaPlace.js'),
  * 
  * @class Cinema
  */
-var Cinema = function( id, definition )
+var Cinema = function( codeName, definition )
 {
-	this.id         = 'http://cineprog.local/cinemas/'+ id;
-	this.placesList = {};
+	this.codeName   = codeName;
+	this.branches = {};
+	this.url        = '';
 	
 	for( var item in definition ) {
 		if( definition.hasOwnProperty( item ) === false ) {
@@ -24,44 +26,41 @@ var Cinema = function( id, definition )
 };
 
 Cinema.prototype = {
-	id         : null,
-	name       : null,
+	id       : null,
+	codeName : null,
+	name     : null,
+	url      : null,
 	
 	/**
-	 * @var {Object} placesList
+	 * @var {Object} branches
 	 */
-	placesList : null,
+	branches : null,
 	
-	buildPlacesList : abstractFn,
+	buildBranches : abstractFn,
 	
 	init : function( callback )
 	{
-		this.buildPlacesList( callback );
+		this.buildBranches( callback );
 	},
 	
-	register : function( dataStore, callback )
+	register : function( db, callback )
 	{
 		var cinema = this;
 		
 		asyncblock( function( flow ) {
-			// register self
-			var obj = {
-				'@context' : {
-					'sch' : 'http://www.schema.org/'
-				},
+			
+			var flowCb = flow.add();
+			
+			db.saveCinema( cinema, function( error ) {
+				if( error == null ) {					
+					// register places
+					for( var id in cinema.branches ) {
+						db.saveBranch( cinema.branches[ id ], flow.add() );
+					}
+				}
 				
-				'@subject' : cinema.id,
-				'@type'    : 'sch:Organization',
-				'sch:name' : cinema.name,
-				'sch:url'  : ''
-			};
-			
-			dataStore.load( 'application/json', obj, dataStoreCb( flow ) );
-			
-			// register places
-			for( var id in cinema.placesList ) {
-				cinema.placesList[ id ].register( dataStore, flow );
-			}
+				flowCb.apply( this, arguments );
+			});
 			
 			// synchronize
 			flow.wait();
@@ -77,7 +76,7 @@ Cinema.prototype = {
 	 */
 	addPlace : function( def )
 	{
-		this.placesList[ def.id ] = new CinemaPlace( this, def );
+		this.branches[ def.codeName ] = new CinemaPlace( this, def );
 	},
 	
 	/**
@@ -88,11 +87,11 @@ Cinema.prototype = {
 	 */
 	getPlace : function( placeName )
 	{
-		if( this.placesList[ placeName ] === undefined ) {
+		if( this.branches[ placeName ] === undefined ) {
 			throw "Invalid place '"+ placeName +'"';
 		}
 		
-		return this.placesList[ placeName ];
+		return this.branches[ placeName ];
 	},
 	
 	/**
@@ -105,6 +104,31 @@ Cinema.prototype = {
 	loadProgram : function( placeName, date, callback )
 	{
 		this.getPlace( placeName ).loadProgram( date, callback );
+	},
+	
+	/**
+	 * Returns JSON-LD representation of cinema
+	 * 
+	 * @returns {Object}
+	 */
+	toJson : function()
+	{
+		var items = [{
+			'@context' : {
+				'sch' : 'http://www.schema.org/'
+			},
+			
+			'@subject' : CineProg.baseUri +'cinemas/'+ this.codeName,
+			'@type'    : 'sch:Organization',
+			'sch:name' : this.name,
+			'sch:url'  : this.url
+		}];
+		
+		for( var id in this.branches ) {
+			items.push( this.branches[ id ].toJson() );
+		}
+		
+		return items;
 	}
 };
 

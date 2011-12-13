@@ -1,0 +1,179 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<title>CineProg control panel</title>
+
+	<link rel="Stylesheet" href="http://ajax.aspnetcdn.com/ajax/jquery.ui/1.8.10/themes/redmond/jquery-ui.css" />
+	<style type="text/css">
+		.clear { width: 0px; height: 0px; clear: both; }
+		.panel { padding-bottom: 30px; margin-bottom: 30px; border-bottom: 2px solid #000; }
+		label  { display : block; }
+	
+		#queryPanel fieldset { width: 500px; float: left; border: 1px solid #000; }
+		button { font-weight: bold; }
+	</style>
+</head>
+<body>
+
+<div class="panel" id="queryPanel">
+	<h2>Query</h2>
+	<fieldset>
+		<legend>Cinema query</legend>
+		<form id="cinemaQueryForm" action="/search">
+			<label>Cinema: <input id="cinema_cinemas" type="text" name="cinema" /></label>
+			<label>Branch: : <input id="cinema_places" type="text" name="branch" /></label>
+			<label>Date from: <input class="date" type="text" name="startDate" /></label>
+			<label>Date to: <input class="date" type="text" name="endDate" /></label>
+			<input type="hidden" name="type" value="cinema" />
+			<button type="submit">Submit</button>
+		</form>
+	</fieldset>
+	<fieldset>
+		<legend>Movie query</legend>
+		<form id="movieQueryForm" action="/search">
+			<label>Movie: <input type="text" name="movie" /></label>
+			<label>Date from: <input class="date" type="text" name="startDate" /></label>
+			<label>Date to: <input class="date" type="text" name="endDate" /></label>
+			<input type="hidden" name="type" value="movie" />
+			<button type="submit">Submit</button>
+		</form>
+	</fieldset>
+	<fieldset>
+		<legend>Result</legend>
+		<div id="queryResultBox"></div>
+	</fieldset>
+	<div class="clear"></div>
+</div>
+
+<div class="panel" id="programPanel">
+	<h2>Program panel</h2>
+	<form id="programForm" action="/loadProgram">
+			<label>Cinema: <input id="program_cinemas" type="text" name="cinema" /></label>
+			<label>Branch: <input id="program_places" type="text" name="branch" /></label>
+		<label>Date: <input class="date" type="text" name="date" /></label>
+		<button type="submit">Submit</button>
+	</form>
+	<div id="programResultBox"></div>
+</div>
+
+<script src="http://ajax.aspnetcdn.com/ajax/jquery/jquery-1.5.js"></script>  
+<script src="http://ajax.aspnetcdn.com/ajax/jquery.ui/1.8.10/jquery-ui.js"></script> 
+<script type="text/javascript">
+	var niceResults = true;
+	var locations = {};
+	
+	function renderResults( jqXHR, target ) {
+		if( jqXHR.status != 200 ) {
+			target.text( jQuery.parseJSON( jqXHR.responseText ).message );
+			
+			
+		} else if( niceResults == false ) {
+			target.text( jqXHR.responseText );
+			
+		} else {
+			var result = jQuery.parseJSON( jqXHR.responseText );
+			
+			var table = '<table>';
+			for( var i = 0, rl = result.length; i < rl; ++i ) {
+				var item = result[i];
+				
+				table += '<tr>'+
+						'<td>'+ item['sch:name'] +'</td>'+
+						'<td>'+ new Date( item['sch:startDate'] ) +'</td>'+
+						'<td>'+ locations[ item['sch:location'] ]['sch:name'] +'</td>'+
+					'</tr>';
+			}
+			table += '</table>';
+			
+			target.html( table );
+		}
+	};
+
+	$(document).ready( function() {
+		$.ajax({
+			url :'http://127.0.0.1:8080/cinemas',
+			complete : function( jqXHR ){
+				if( jqXHR.status != 200 ) {
+					alert('unable to load cinames');	
+				}
+				
+				var cinema_cinemas  = $('#cinema_cinemas'),
+				    cinema_places   = $('#cinema_places'),
+				    program_cinemas = $('#program_cinemas'),
+				    program_places  = $('#program_places');
+				
+				var cinema_cinemasList  = $('<select name="cinema"></select>'),
+				    cinema_placesList   = $('<select name="place"></select>'),
+				    program_cinemasList = $('<select name="cinema"></select>'),
+				    program_placesList  = $('<select name="place"></select>');
+				
+				
+				var cinemas = jQuery.parseJSON( jqXHR.responseText );
+				
+				var cinema, brach;
+				for( var i = 0, cl = cinemas.length; i < cl; ++i ) {
+					if( cinemas[ i ]['@type'] == 'sch:Organization' ) {
+						var cinema = cinemas[ i ];
+						
+					} else {
+						var branch = cinemas[ i ];
+						
+						locations[ branch['@subject'] ] = branch;
+					}				
+				}
+			}
+		});
+		
+		
+		
+		$('#cinemaQueryForm').bind('submit', function() {
+			$('#queryResultBox').text( 'Loading...' );
+			
+			console.log($( this ).serialize());
+			
+			$.ajax({
+				url     : 'http://127.0.0.1:8080/search',
+				data    : $( this ).serialize(),
+				complete : function( jqXHR ){
+					renderResults( jqXHR, $('#queryResultBox') );
+				}
+			});
+			
+			return false;
+		});
+		
+		$('#movieQueryForm').bind('submit', function() {
+			$('#queryResultBox').text( 'Loading...' );
+			
+			$.ajax({
+				url     : 'http://127.0.0.1:8080/search',
+				data    : $( this ).serialize(),
+				complete : function( jqXHR ){
+					renderResults( jqXHR, $('#queryResultBox') );
+				}
+			});
+			
+			return false;
+		});
+		
+		$('#programForm').bind('submit', function() {
+			$('#programResultBox').text( 'Loading...' );
+			
+			$.ajax({
+				url     : 'http://127.0.0.1:8080/loadProgram',
+				data    : $( this ).serialize(),
+				complete : function( jqXHR ){
+					$('#programResultBox').text( jQuery.parseJSON( jqXHR.responseText ).message );
+				}
+			});
+			
+			return false;
+		});
+		
+		$('input[class=date]').datepicker({ dateFormat : $.datepicker.ISO_8601 });
+	});
+</script>
+
+</body>
+</html>

@@ -4,7 +4,7 @@ var sqlite     = require('sqlite3').verbose(),
     Cinema     = require('./Cinema.js'),
     Event      = require('./Event.js');
 
-var db = new sqlite.Database('cineprog.sqlite');
+var db = new sqlite.Database(':memory:');
 
 var cinemas  = {},
     branches = {};

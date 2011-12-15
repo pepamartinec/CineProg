@@ -4,11 +4,11 @@
 	"author"      : "Josef Martinec <joker806@gmail.com>",
 	"version"     : "0.0.1",
 	"dependencies": {
-		"rdfstore"   : ">=0.4.11",
 		"asyncblock" : ">=0.0.7",
 		"request"    : ">=2.2.9",
 		"jsdom"      : ">=0.2.10",
 		"jquery"     : "1.6.x",
-		"restify"    : ">=0.5.5"
+		"restify"    : ">=0.5.5",
+		"sqlite3"    : ">=2.1.1"
 	}
 }
